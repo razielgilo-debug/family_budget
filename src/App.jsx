@@ -133,6 +133,8 @@ export default function App() {
   // Onboarding
   const [obStep,setObStep]=useState(0); const [obName,setObName]=useState("");
   const [obDay,setObDay]=useState(1);   const [obDbUrl,setObDbUrl]=useState("");
+  const [showTutorial,setShowTutorial]=useState(false);
+  const [tutStep,setTutStep]=useState(0);
   // Modals
   const [showReset,setShowReset]=useState(false);
   const [showAddAcc,setShowAddAcc]=useState(false); const [accName,setAccName]=useState(""); const [accIcon,setAccIcon]=useState("💼");
@@ -349,10 +351,28 @@ export default function App() {
   // ─── Handlers ─────────────────────────────────────────────────────────────
   async function finishOnboard(){
     const dbUrl=(obDbUrl||"").trim().replace(/\/+$/,"");
-    const np={name:obName.trim()||"משתמש",dbUrl,accId:"acc1",onboarded:true,settings:{...DEF_SETTINGS,resetDay:obDay},eomSeen:{}};
+    let inheritedSettings=null;
     let initHH=DEF_HH;
-    if(dbUrl){ const res=await fbRead(dbUrl); if(res.ok&&res.data){initHH={...DEF_HH,...res.data};showToast("הצטרפת! 🎉");}else{await fbWrite(dbUrl,initHH);showToast("משק בית נוצר! 🏠");} }
+    if(dbUrl){
+      setSyncing(true);
+      const res=await fbRead(dbUrl);
+      setSyncing(false);
+      if(res.ok&&res.data){
+        initHH={...DEF_HH,...res.data};
+        // Inherit resetDay and other settings from existing household if present
+        if(res.data._sharedSettings) inheritedSettings=res.data._sharedSettings;
+        showToast("הצטרפת! 🎉");
+      } else {
+        // New household — write defaults
+        await fbWrite(dbUrl,{...initHH,_sharedSettings:{resetDay:obDay}});
+        showToast("משק בית נוצר! 🏠");
+      }
+    }
+    const resetDay=inheritedSettings?.resetDay||obDay;
+    const np={name:obName.trim()||"משתמש",dbUrl,accId:"acc1",onboarded:true,
+      settings:{...DEF_SETTINGS,resetDay},eomSeen:{}};
     lsSet(LS_HH,initHH); setHH_(initHH); saveProf(np); setSettingsDbUrl(dbUrl);
+    setShowTutorial(true); // show tutorial after onboarding
   }
   async function setBudget(){
     const v=Math.min(MAX_B,parseFloat(budVal)||0); if(v<=0) return;
@@ -556,61 +576,131 @@ export default function App() {
   // ══════════════════════════════════════════════════════════════════════════
   // ONBOARDING
   // ══════════════════════════════════════════════════════════════════════════
+  const TUT_STEPS=[
+    {icon:"🏠",title:"ברוכים הבאים!",desc:"אפליקציה לניהול תקציב משפחתי משותף בין שני נייד",color:"#6C63FF"},
+    {icon:"💰",title:"קביעת תקציב",desc:'לחץ "קבע תקציב" בכרטיס הראשי → הכנס סכום חודשי → שמור',color:"#4ECDC4"},
+    {icon:"➕",title:"הוספת הוצאה",desc:'לחץ על "הוצאה" בתפריט התחתון → סכום → קטגוריה → שם עסק → שמור',color:"#FFE66D",dark:true},
+    {icon:"🔄",title:"סנכרון עם בן/בת הזוג",desc:'הגדרות → ☁️ ענן → Firebase URL. בן/בת הזוג מכניס/ה אותו URL בהגדרות → הצטרפות',color:"#82E0AA",dark:true},
+    {icon:"📊",title:"ניתוח הוצאות",desc:"לשונית ניתוח → בחר מספר חודשים וקטגוריה → ראה פילוח מפורט",color:"#C39BD3"},
+    {icon:"🎯",title:"יעדי חיסכון",desc:'לשונית חיסכון → הוסף יעד (חופשה, רכב...) → הפקד כסף → עקוב אחר ההתקדמות',color:"#FF8B94"},
+    {icon:"📲",title:"התראות ברקע",desc:'הורד ntfy → הגדרות → 🔔 התראות → הכנס שם ערוץ → קבל התראות גם כשהאפליקציה סגורה',color:"#85C1E9"},
+  ];
+
+  if(showTutorial) return(
+    <div style={{fontFamily:"'Heebo',sans-serif",direction:"rtl",background:"#0F0F1A",minHeight:"100dvh",width:"100%",color:"#fff",display:"flex",flexDirection:"column",overflow:"hidden"}}>
+      <style>{`@import url('https://fonts.googleapis.com/css2?family=Heebo:wght@400;600;700;800&display=swap');*{box-sizing:border-box}button,input{font-family:'Heebo',sans-serif;outline:none}`}</style>
+      {/* Progress dots */}
+      <div style={{display:"flex",justifyContent:"center",gap:6,padding:"18px 0 0"}}>
+        {TUT_STEPS.map((_,i)=>(
+          <div key={i} style={{width:i===tutStep?22:7,height:7,borderRadius:10,background:i===tutStep?"#6C63FF":i<tutStep?"rgba(108,99,255,0.5)":"rgba(255,255,255,0.2)",transition:"all .3s"}}/>
+        ))}
+      </div>
+      {/* Card */}
+      <div style={{flex:1,display:"flex",flexDirection:"column",alignItems:"center",justifyContent:"center",padding:"0 28px"}}>
+        <div style={{width:"100%",background:TUT_STEPS[tutStep].color+"22",border:`1px solid ${TUT_STEPS[tutStep].color}44`,borderRadius:28,padding:"36px 28px",textAlign:"center",transition:"all .3s"}}>
+          <div style={{fontSize:72,marginBottom:20,lineHeight:1}}>{TUT_STEPS[tutStep].icon}</div>
+          <div style={{fontSize:24,fontWeight:800,marginBottom:12,color:TUT_STEPS[tutStep].color}}>
+            {TUT_STEPS[tutStep].title}
+          </div>
+          <div style={{fontSize:15,color:"rgba(255,255,255,0.8)",lineHeight:1.8}}>
+            {TUT_STEPS[tutStep].desc}
+          </div>
+        </div>
+      </div>
+      {/* Buttons */}
+      <div style={{padding:"20px 28px 36px",display:"flex",gap:10}}>
+        {tutStep>0
+          ? <button onClick={()=>setTutStep(t=>t-1)}
+              style={{flex:1,padding:14,borderRadius:14,border:"1px solid rgba(255,255,255,0.2)",background:"transparent",color:"#fff",cursor:"pointer",fontWeight:700,fontSize:16}}>‹ הקודם</button>
+          : <button onClick={()=>setShowTutorial(false)}
+              style={{flex:1,padding:14,borderRadius:14,border:"1px solid rgba(255,255,255,0.15)",background:"transparent",color:"#888",cursor:"pointer",fontSize:14}}>דלג</button>
+        }
+        {tutStep<TUT_STEPS.length-1
+          ? <button onClick={()=>setTutStep(t=>t+1)}
+              style={{flex:2,padding:14,borderRadius:14,border:"none",background:`linear-gradient(135deg,${TUT_STEPS[tutStep].color},#4ECDC4)`,color:TUT_STEPS[tutStep].dark?"#111":"#fff",cursor:"pointer",fontWeight:800,fontSize:16}}>הבא ›</button>
+          : <button onClick={()=>setShowTutorial(false)}
+              style={{flex:2,padding:14,borderRadius:14,border:"none",background:"linear-gradient(135deg,#6C63FF,#4ECDC4)",color:"#fff",cursor:"pointer",fontWeight:800,fontSize:17}}>🚀 בואו נתחיל!</button>
+        }
+      </div>
+    </div>
+  );
+
   if(!prof.onboarded) return(
     <div style={{fontFamily:"'Heebo',sans-serif",direction:"rtl",background:"#0F0F1A",minHeight:"100dvh",width:"100%",color:"#fff",display:"flex",flexDirection:"column",padding:"28px 24px",fontSize:15}}>
       <style>{`@import url('https://fonts.googleapis.com/css2?family=Heebo:wght@400;600;700;800&display=swap');
         *{box-sizing:border-box}input,button{font-family:'Heebo',sans-serif;outline:none}
-        .ob-inp{width:100%;padding:12px 16px;border-radius:12px;border:1px solid rgba(255,255,255,0.15);background:rgba(255,255,255,0.07);color:#fff;font-size:16px;direction:rtl}
+        .ob-inp{width:100%;padding:14px 16px;border-radius:14px;border:1px solid rgba(255,255,255,0.15);background:rgba(255,255,255,0.07);color:#fff;font-size:18px;direction:rtl;text-align:center}
         .ob-btn{width:100%;padding:16px;border:none;border-radius:14px;background:linear-gradient(135deg,#6C63FF,#4ECDC4);color:#fff;font-family:'Heebo',sans-serif;font-weight:800;font-size:17px;cursor:pointer}
-        .d{border:1px solid rgba(255,255,255,0.15);background:transparent;color:#888;cursor:pointer;font-family:'Heebo',sans-serif;font-weight:700;border-radius:10px;width:42px;height:42px;font-size:13px}
-        .d.on{border-color:#6C63FF;background:rgba(108,99,255,0.3);color:#fff}
+        .ob-skip{background:none;border:none;color:#555;cursor:pointer;font-family:'Heebo',sans-serif;font-size:14px;padding:10px 0;text-align:center;width:100%}
       `}</style>
+      {/* Step indicator */}
+      <div style={{display:"flex",justifyContent:"center",gap:8,paddingTop:8,marginBottom:8}}>
+        {[0,1].map(i=>(
+          <div key={i} style={{height:5,borderRadius:10,background:i===obStep?"#6C63FF":i<obStep?"rgba(108,99,255,0.5)":"rgba(255,255,255,0.15)",transition:"all .3s",width:i===obStep?32:16}}/>
+        ))}
+      </div>
       <div style={{flex:1,display:"flex",flexDirection:"column",justifyContent:"center"}}>
+
+        {/* ── Step 0: Name ── */}
         {obStep===0&&<>
-          <div style={{textAlign:"center",marginBottom:32}}><div style={{fontSize:60,marginBottom:12}}>🏠</div>
-            <div style={{fontSize:26,fontWeight:800,marginBottom:6}}>תקציב משפחתי</div></div>
-          <div style={{fontSize:13,color:"#888",marginBottom:8}}>מה שמך?</div>
-          <input className="ob-inp" placeholder="השם שלך" value={obName} autoFocus
-            onChange={e=>setObName(e.target.value)} onKeyDown={e=>e.key==="Enter"&&obName.trim()&&setObStep(1)}
-            style={{marginBottom:20,textAlign:"center",fontSize:22,fontWeight:800}} />
+          <div style={{textAlign:"center",marginBottom:36}}>
+            <div style={{fontSize:68,marginBottom:16}}>🏠</div>
+            <div style={{fontSize:28,fontWeight:800,marginBottom:8}}>תקציב משפחתי</div>
+            <div style={{fontSize:14,color:"#888",lineHeight:1.6}}>ניהול תקציב חכם לשני בני הזוג</div>
+          </div>
+          <div style={{fontSize:13,color:"#888",marginBottom:8,textAlign:"center"}}>מה שמך?</div>
+          <input className="ob-inp" placeholder="הכנס את שמך" value={obName} autoFocus
+            onChange={e=>setObName(e.target.value)}
+            onKeyDown={e=>e.key==="Enter"&&obName.trim()&&setObStep(1)}
+            style={{marginBottom:20,fontWeight:800,fontSize:22}} />
           <button className="ob-btn" onClick={()=>obName.trim()&&setObStep(1)}>המשך ›</button>
         </>}
+
+        {/* ── Step 1: Firebase URL (sharing key) ── */}
         {obStep===1&&<>
-          <div style={{textAlign:"center",marginBottom:24}}><div style={{fontSize:48,marginBottom:10}}>📅</div>
-            <div style={{fontSize:22,fontWeight:800,marginBottom:4}}>יום איפוס תקציב</div>
-            <div style={{fontSize:13,color:"#888"}}>באיזה יום בחודש מתחיל תקציב חדש?</div></div>
-          <div style={{display:"flex",flexWrap:"wrap",gap:6,justifyContent:"center",marginBottom:28}}>
-            {Array.from({length:28},(_,i)=>i+1).map(d=>(
-              <button key={d} onClick={()=>setObDay(d)} className={`d${obDay===d?" on":""}`}>{d}</button>
-            ))}
+          <div style={{textAlign:"center",marginBottom:24}}>
+            <div style={{fontSize:56,marginBottom:12}}>🔑</div>
+            <div style={{fontSize:24,fontWeight:800,marginBottom:8}}>מפתח שיתוף</div>
+            <div style={{fontSize:14,color:"#888",lineHeight:1.7}}>יש לך מפתח מבן/בת הזוג? הכנס אותו כאן<br/>ותקבל את כל ההגדרות אוטומטית</div>
           </div>
-          <button className="ob-btn" onClick={()=>setObStep(2)}>המשך ›</button>
-        </>}
-        {obStep===2&&<>
-          <div style={{textAlign:"center",marginBottom:18}}><div style={{fontSize:48,marginBottom:8}}>☁️</div>
-            <div style={{fontSize:22,fontWeight:800,marginBottom:4}}>חיבור לענן</div>
-            <div style={{fontSize:13,color:"#888",lineHeight:1.7}}>לסנכרון עם בן/בת הזוג. ניתן לדלג.</div></div>
-          <div style={{background:"rgba(108,99,255,0.12)",border:"1px solid rgba(108,99,255,0.3)",borderRadius:14,padding:14,marginBottom:16,fontSize:12,lineHeight:2,color:"#ccc"}}>
-            <div style={{fontWeight:700,color:"#fff",marginBottom:4}}>הגדרת Firebase (5 דקות, חינם):</div>
-            <div>1. <a href="https://console.firebase.google.com" target="_blank" rel="noreferrer" style={{color:"#4ECDC4"}}>console.firebase.google.com</a></div>
-            <div>2. צור פרויקט → Build → Realtime Database</div>
-            <div>3. Create database → <b style={{color:"#FFE66D"}}>Start in TEST MODE</b></div>
-            <div>4. העתק URL → הכנס למטה → שלח לבן/בת הזוג</div>
-            <div style={{color:"#FF8B94",marginTop:4}}>⚠️ בן/בת הזוג לא צריך/ה חשבון Firebase!</div>
+          {/* Joining existing */}
+          <div style={{background:"rgba(78,205,196,0.08)",border:"1px solid rgba(78,205,196,0.25)",borderRadius:16,padding:16,marginBottom:14}}>
+            <div style={{fontSize:13,fontWeight:700,color:"#4ECDC4",marginBottom:8}}>📲 יש לי מפתח שיתוף:</div>
+            <input type="url" className="ob-inp"
+              placeholder="https://...firebaseio.com"
+              value={obDbUrl} onChange={e=>setObDbUrl(e.target.value)}
+              style={{marginBottom:10,direction:"ltr",textAlign:"left",fontSize:13,background:"rgba(0,0,0,0.3)"}} />
+            <button className="ob-btn" onClick={finishOnboard}
+              style={{background:"linear-gradient(135deg,#4ECDC4,#82E0AA)",color:"#111"}}>
+              {syncing?"מתחבר...":"🔗 הצטרף למשק בית"}
+            </button>
           </div>
-          <input type="url" className="ob-inp" placeholder="https://...firebaseio.com"
-            value={obDbUrl} onChange={e=>setObDbUrl(e.target.value)}
-            style={{marginBottom:16,fontSize:13,direction:"ltr",textAlign:"left"}} />
-          <button className="ob-btn" onClick={finishOnboard} style={{marginBottom:10}}>{syncing?"מחבר...":"התחל ›"}</button>
-          <button onClick={()=>{setObDbUrl("");finishOnboard();}}
-            style={{background:"none",border:"none",color:"#666",cursor:"pointer",fontFamily:"Heebo",fontSize:14,padding:"8px 0",textAlign:"center",width:"100%"}}>
-            דלג — שמור מקומית בלבד</button>
+          {/* Divider */}
+          <div style={{display:"flex",alignItems:"center",gap:10,marginBottom:14}}>
+            <div style={{flex:1,height:1,background:"rgba(255,255,255,0.1)"}}/>
+            <div style={{fontSize:13,color:"#555"}}>או</div>
+            <div style={{flex:1,height:1,background:"rgba(255,255,255,0.1)"}}/>
+          </div>
+          {/* Creating new */}
+          <div style={{background:"rgba(108,99,255,0.08)",border:"1px solid rgba(108,99,255,0.25)",borderRadius:16,padding:14,marginBottom:6}}>
+            <div style={{fontSize:13,fontWeight:700,color:"#6C63FF",marginBottom:6}}>✨ אני ראשון — צור משק בית חדש:</div>
+            <div style={{fontSize:12,color:"#888",lineHeight:1.8,marginBottom:10}}>
+              1. <a href="https://console.firebase.google.com" target="_blank" rel="noreferrer" style={{color:"#4ECDC4"}}>console.firebase.google.com</a><br/>
+              2. צור פרויקט → Build → <b>Realtime Database</b><br/>
+              3. Create database → <b style={{color:"#FFE66D"}}>Start in TEST MODE</b><br/>
+              4. העתק URL → הכנס למעלה
+            </div>
+            <button className="ob-btn" onClick={()=>{setObDbUrl("");finishOnboard();}}
+              style={{background:"linear-gradient(135deg,#6C63FF,#4ECDC4)"}}>
+              המשך בלי שיתוף
+            </button>
+          </div>
         </>}
       </div>
-      {obStep>0&&<button onClick={()=>setObStep(p=>p-1)}
-        style={{background:"none",border:"none",color:"#666",cursor:"pointer",fontFamily:"Heebo",fontSize:14,padding:"12px 0",textAlign:"center"}}>‹ חזור</button>}
+      {obStep>0&&<button className="ob-skip" onClick={()=>setObStep(p=>p-1)}>‹ חזור</button>}
     </div>
   );
+
 
   // ══════════════════════════════════════════════════════════════════════════
   // MAIN APP
@@ -1103,7 +1193,11 @@ export default function App() {
             <div style={{fontSize:13,color:sub,marginBottom:10}}>יום איפוס בחודש</div>
             <div style={{display:"flex",flexWrap:"wrap",gap:5}}>
               {Array.from({length:28},(_,i)=>i+1).map(d=>(
-                <button key={d} onClick={()=>saveProf({...prof,settings:{...s,resetDay:d}})}
+                <button key={d} onClick={async()=>{
+                  saveProf({...prof,settings:{...s,resetDay:d}});
+                  // sync resetDay to cloud so partner inherits it
+                  if(prof.dbUrl){ const nh2={...hh,_sharedSettings:{resetDay:d}}; await saveHH(nh2,prof.dbUrl); }
+                }}
                   className={`seg${s.resetDay===d?" on":""}`} style={{width:38,height:38,borderRadius:8,fontSize:12}}>{d}</button>
               ))}
             </div>
