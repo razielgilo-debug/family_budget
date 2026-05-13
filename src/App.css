@@ -1,5 +1,8 @@
-import { useState, useEffect, useCallback, useRef } from "react";
+App · JSX
+Copy
 
+import { useState, useEffect, useCallback, useRef } from "react";
+ 
 // ─── Constants ────────────────────────────────────────────────────────────────
 const DEF_CATS = ["🛒 מזון","🍽️ מסעדות","🏠 בית","👕 ביגוד","🚗 רכב","💊 בריאות",
   "🎮 פנאי","📚 חינוך","✈️ נסיעות","🔧 תחזוקה","💡 חשבונות","🎁 מתנות","📦 אחר"];
@@ -18,7 +21,7 @@ const MAX_B = 100000;
 const LS_PROF = "bp_STABLE_profile";
 const LS_HH   = "bp_STABLE_household";
 const OLD_KEYS = ["bpv6_profile","bpv7_profile","bp_prof_v5","bpv5_profile","bpv6_household","bpv7_household"];
-
+ 
 // ─── Utils ────────────────────────────────────────────────────────────────────
 const uid  = () => `${Date.now()}-${Math.random().toString(36).slice(2,6)}`;
 function lsGet(k,def){ try{ const v=localStorage.getItem(k); return v?JSON.parse(v):def; }catch{ return def; } }
@@ -50,7 +53,7 @@ function addMonths(dateStr,n){
 }
 function isDark(c){ try{const h=c.replace("#","");return(parseInt(h.slice(0,2),16)*299+parseInt(h.slice(2,4),16)*587+parseInt(h.slice(4,6),16)*114)/1e3<128;}catch{return true;} }
 function pkCompare(a,b){ return a<b?-1:a>b?1:0; }
-
+ 
 // ─── Firebase ─────────────────────────────────────────────────────────────────
 async function fbRead(url){
   try{ const r=await fetch(`${url}/household.json`,{cache:"no-store"}); if(!r.ok) return{ok:false,status:r.status}; return{ok:true,data:await r.json()}; }
@@ -67,17 +70,17 @@ async function ntfy(ch,title,body,pri="default"){
 function canNotify(){ return "Notification" in window; }
 async function askNotif(){ if(!canNotify()) return "unsupported"; if(Notification.permission==="granted") return "granted"; return await Notification.requestPermission(); }
 function fireNotif(title,body){ if(!canNotify()||Notification.permission!=="granted") return; try{new Notification(title,{body,icon:"https://cdn.jsdelivr.net/npm/twemoji@14/assets/72x72/1f4b0.png"});}catch{} }
-
+ 
 // ─── Defaults ─────────────────────────────────────────────────────────────────
 const DEF_HH={accounts:[{id:"acc1",name:"כללי",icon:"🏠",resetDay:1}],data:{acc1:{defaultBudget:0,months:{},expenses:[],savings:[],recurring:[]}},cats:[...DEF_CATS]};
 const DEF_S={fontSize:"medium",bg:"#0F0F1A",text:"#ffffff",accent:"#6C63FF",resetDay:1,reminder:false,reminderHour:21,reminderMin:0,reminderLang:"he",partnerNotif:true,ntfyChannel:""};
-
+ 
 // ─── Budget helpers ────────────────────────────────────────────────────────────
 // getBudget: returns base budget for a period (defaultBudget unless overridden)
 function getBudget(accData,key){ return accData.months?.[key]?.budget ?? accData.defaultBudget ?? 0; }
 // getTotal: base budget + any extras added for that specific month
 function getTotalBudget(accData,key){ return getBudget(accData,key) + (accData.months?.[key]?.extra||0); }
-
+ 
 // ══════════════════════════════════════════════════════════════════════════════
 export default function App(){
   const [prof,  setProf_] = useState(null);
@@ -88,13 +91,13 @@ export default function App(){
   const [toast, setToa]   = useState(null);
   const [sect,  setSect]  = useState("profile");
   const [hOff,  setHOff]  = useState(0); // period offset: 0=current, +1=past, -1=future
-
+ 
   // Onboarding
   const [oStep,setOS]=useState(0);const [oName,setON]=useState("");const [oDay,setOD]=useState(1);const [oUrl,setOU]=useState("");
-
+ 
   // Tutorial
   const [showTut,setShowTut]=useState(false);const [tutI,setTutI]=useState(0);
-
+ 
   // Modals
   const [editExp,setEditExp]=useState(null);
   const [showReset,setShowReset]=useState(false);
@@ -109,30 +112,30 @@ export default function App(){
   const [delGC,setDelGC]=useState(null);
   const [rdConfirm,setRdConfirm]=useState(null);
   const [showRecurring,setShowRecurring]=useState(false);
-
+ 
   // Forms
   const TOD=new Date().toISOString().split("T")[0];
   const [ef,setEF]=useState({amt:"",cat:DEF_CATS[0],biz:"",note:"",date:TOD,inst:1,recurring:false,recM:12});
   const [budVal,setBV]=useState("");const [extraVal,setEV]=useState("");
-
+ 
   // Savings form
   const [svN,setSvN]=useState("");const [svT,setSvT]=useState("");const [svI,setSvI]=useState("🎯");
-
+ 
   // Analysis
   const [anM,setAnM]=useState(3);const [anCat,setAnCat]=useState("הכל");
-
+ 
   // Settings
   const [nCI,setNCI]=useState("🛒");const [nCN,setNCN]=useState("");
   const [sUrl,setSUrl]=useState("");const [jUrl,setJUrl]=useState("");const [sMsg,setSMsg]=useState("");
-
+ 
   // Export
   const [expMonths,setExpMonths]=useState(new Set());const [showExpPicker,setShowExpPicker]=useState(false);
-
+ 
   const TODAY=new Date();
   const knownIds=useRef(new Set());
   const remTimers=useRef([]);
   const saveProf=useCallback(p=>{lsSet(LS_PROF,p);setProf_(p);},[]);
-
+ 
   // ── Reminder ────────────────────────────────────────────────────────────────
   function remMsg(lang="he"){
     const m={he:["האם עדכנת את ההוצאות שלך היום? 💰","זכור לרשום את ההוצאות! 📝","זמן לעדכן תקציב! ⏰"],en:["Did you update your expenses today? 💰","Don't forget to log your spending! 📝"],ar:["هل سجلت مصاريفك اليوم؟ 💰","لا تنسَ تسجيل النفقات! 📝"]};
@@ -150,7 +153,7 @@ export default function App(){
     },fire-now);
     remTimers.current=[t];
   }
-
+ 
   // ── Init ────────────────────────────────────────────────────────────────────
   useEffect(()=>{
     migrateLS();
@@ -164,7 +167,7 @@ export default function App(){
     } else { setProf_({name:"",dbUrl:"",accId:"acc1",onboarded:false,settings:{...DEF_S},eomSeen:{}}); }
     return()=>remTimers.current.forEach(t=>clearTimeout(t));
   },[]);
-
+ 
   // ── Cloud ───────────────────────────────────────────────────────────────────
   async function pullCloud(url,p,notify=true){
     if(!url){setSyOk(false);return;}
@@ -198,7 +201,7 @@ export default function App(){
     const id=setInterval(()=>pullCloud(prof.dbUrl,prof,true),12000);
     return()=>clearInterval(id);
   },[prof?.dbUrl,prof?.onboarded]);
-
+ 
   function toast2(msg,type="ok"){setToa({msg,type});setTimeout(()=>setToa(null),3200);}
   function checkEOM(p,h){
     const aId=p.accId||"acc1",ad=h.data?.[aId]||{};
@@ -208,9 +211,9 @@ export default function App(){
     const ps=(ad.expenses||[]).filter(e=>e.mKey===prevKey).reduce((s,e)=>s+e.amount,0);
     if(Math.abs(pb-ps)>5){setEomMode((pb-ps)>=0?"positive":"negative");setShowEOM(true);saveProf({...p,eomSeen:{...(p.eomSeen||{}),[flag]:true}});}
   }
-
+ 
   if(!prof) return <div style={{background:"#0F0F1A",minHeight:"100dvh",display:"flex",alignItems:"center",justifyContent:"center",color:"#fff",fontFamily:"sans-serif",fontSize:18}}>טוען...</div>;
-
+ 
   // ── Derived ─────────────────────────────────────────────────────────────────
   const accId    = prof.accId||"acc1";
   const acc_obj  = (hh.accounts||[]).find(a=>a.id===accId);
@@ -225,13 +228,13 @@ export default function App(){
   const cbr = dark?"rgba(255,255,255,0.1)" :"rgba(0,0,0,0.12)";
   const sub = dark?"#888":"#666";
   const sBg = dark?"#1a1a2e":"#ffffff";
-
+ 
   const CK  = getPK(TODAY,rd);             // current period key
   const VK  = offPK(CK, hOff);            // hOff>0 = past, hOff<0 = future
   const PK  = offPK(CK,1);                // prev period key
   const isFuturePeriod = hOff<0;
   const isPastPeriod   = hOff>0;
-
+ 
   const totalBud = getTotalBudget(accData,VK);
   const allExp   = accData.expenses||[];
   const viewExp  = allExp.filter(e=>e.mKey===VK);
@@ -245,7 +248,7 @@ export default function App(){
   const prevSpent= allExp.filter(e=>e.mKey===PK).reduce((s,e)=>s+e.amount,0);
   const prevRem  = prevBud-prevSpent;
   const futureExp= allExp.filter(e=>e.date>TOD&&e.mKey!==VK);
-
+ 
   const css=`
     @import url('https://fonts.googleapis.com/css2?family=Heebo:wght@300;400;600;700;800&display=swap');
     html,body,#root{margin:0;padding:0;width:100%;background:${bg};}
@@ -265,9 +268,9 @@ export default function App(){
     .ov{position:fixed;inset:0;background:rgba(0,0,0,0.85);z-index:900;display:flex;align-items:flex-end;justify-content:center;padding:0}
     .erow{display:flex;align-items:center;gap:9px;padding:7px 0;border-bottom:1px solid ${cbr};cursor:pointer}
   `;
-
+ 
   const doSave=async(nh)=>await saveHH(nh,prof.dbUrl);
-
+ 
   // ── Tog / BottomSheet ───────────────────────────────────────────────────────
   const Tog=({on,onChange})=>(<div onClick={onChange} className="tog" style={{background:on?acc:dark?"rgba(255,255,255,0.15)":"rgba(0,0,0,0.15)"}}><div className="kn" style={{left:on?"25px":"3px"}}/></div>);
   const BS=({children,onClose})=>(
@@ -278,7 +281,7 @@ export default function App(){
       </div>
     </div>
   );
-
+ 
   // ── Period nav ──────────────────────────────────────────────────────────────
   const PNav=()=>(
     <div style={{display:"flex",alignItems:"center",justifyContent:"center",gap:10,marginBottom:14}}>
@@ -300,7 +303,7 @@ export default function App(){
       </button>
     </div>
   );
-
+ 
   // ── Expense handlers ────────────────────────────────────────────────────────
   async function addExp(){
     const v=parseFloat(ef.amt);if(!v||v<=0){toast2("הכנס סכום","err");return;}
@@ -357,7 +360,7 @@ export default function App(){
     await doSave({...hh,data:{...hh.data,[accId]:{...accData,expenses:allExp.filter(e=>e.recurringId!==rId),recurring:recurring.filter(r=>r.id!==rId)}}});
     toast2("הוצאה קבועה נמחקה");
   }
-
+ 
   // ── Budget handlers ─────────────────────────────────────────────────────────
   // "קבע תקציב" = sets defaultBudget (applies to all months from now on)
   // also stores override for VK specifically
@@ -389,7 +392,7 @@ export default function App(){
     saveProf({...prof,settings:{...s,resetDay:nd}});
     setRdConfirm(null);toast2(`יום איפוס שונה ל-${nd} ✅`);
   }
-
+ 
   // ── Savings ─────────────────────────────────────────────────────────────────
   async function addSav(){
     if(!svN.trim()||!svT){toast2("מלא שם וסכום","err");return;}
@@ -415,7 +418,7 @@ export default function App(){
     const nh={...hh,data:{...hh.data,[accId]:{...accData,expenses:[...allExp,exp],savings:savings.map(g=>g.id===xG?{...g,saved:(g.saved||0)+v,deposits:[...(g.deposits||[]),{id:uid(),amount:v,date:TOD}]}:g)}}};
     await doSave(nh);setShowXfer(false);setXG("");setXA("");toast2(`₪${v.toLocaleString()} הועבר לחיסכון 🎯`);
   }
-
+ 
   // ── Accounts ─────────────────────────────────────────────────────────────────
   async function doAddAcc(){
     if(!newAcc.name.trim())return;
@@ -435,7 +438,7 @@ export default function App(){
     const nh={...hh,accounts:(hh.accounts||[]).filter(a=>a.id!==id)};
     await doSave(nh);if(id===accId) saveProf({...prof,accId:nh.accounts[0]?.id||"acc1"});toast2("חשבון נמחק");
   }
-
+ 
   // ── EOM ─────────────────────────────────────────────────────────────────────
   async function eomToNext(){
     const sign=eomMode==="positive"?1:-1,amt=Math.abs(prevRem);
@@ -456,14 +459,14 @@ export default function App(){
     setEomDone({action:"לחיסכון",amount:amt,goal:savGoal?.name,key:PK});
     toast2(`₪${amt.toLocaleString()} הועברו לחיסכון 🎯`);
   }
-
+ 
   // ── Cats ─────────────────────────────────────────────────────────────────────
   async function addCat(){
     const n=nCN.trim();if(!n)return;const full=`${nCI} ${n}`;
     if(cats.includes(full)){toast2("קיים","err");return;}
     await doSave({...hh,cats:[...cats,full]});setNCN("");toast2("נוסף");
   }
-
+ 
   // ── Export ───────────────────────────────────────────────────────────────────
   // Build list of all period keys that have expenses
   function allPKs(){
@@ -472,12 +475,12 @@ export default function App(){
     for(let i=0;i<12;i++) keys.add(offPK(CK,i));
     return [...keys].sort(pkCompare);
   }
-
+ 
   function getExportExps(){
     if(expMonths.size===0) return allExp;
     return allExp.filter(e=>expMonths.has(e.mKey));
   }
-
+ 
   function exportCSV(){
     const exps=[...getExportExps()].sort((a,b)=>a.date>b.date?1:-1);
     const bom="\uFEFF";
@@ -491,20 +494,20 @@ export default function App(){
     document.body.appendChild(a);a.click();document.body.removeChild(a);URL.revokeObjectURL(url);
     toast2("📊 קובץ Excel הורד!");
   }
-
+ 
   function exportPDF(){
     const exps=[...getExportExps()].sort((a,b)=>a.date>b.date?1:-1);
     const total=exps.reduce((s,e)=>s+e.amount,0);
     const byP={};exps.forEach(e=>{if(!byP[e.mKey])byP[e.mKey]=[];byP[e.mKey].push(e);});
     const catTot={};exps.forEach(e=>{catTot[e.cat]=(catTot[e.cat]||0)+e.amount;});
-
+ 
     const periodRows=Object.keys(byP).sort().map(k=>{
       const pt=byP[k].reduce((s,e)=>s+e.amount,0);
       const er=byP[k].map(e=>`<tr><td>${e.date}</td><td>${e.cat}</td><td>${e.biz||""}</td><td>${e.note||""}</td><td style="text-align:left;font-weight:600">₪${Number(e.amount).toLocaleString()}</td><td>${e.by||""}</td></tr>`).join("");
       return `<tr class="ph"><td colspan="5"><b>${getPL(k,rd)}</b></td><td style="text-align:left;font-weight:700">₪${pt.toLocaleString()}</td></tr>${er}`;
     }).join("");
     const catRows=Object.entries(catTot).sort((a,b)=>b[1]-a[1]).map(([c,v])=>`<tr><td>${c}</td><td>₪${v.toLocaleString()}</td><td>${Math.round((v/total)*100)}%</td></tr>`).join("");
-
+ 
     const html=`<!DOCTYPE html><html dir="rtl" lang="he"><head><meta charset="UTF-8"><title>דוח הוצאות</title>
 <style>
 @media print{body{-webkit-print-color-adjust:exact;print-color-adjust:exact}@page{margin:15mm}}
@@ -532,7 +535,7 @@ td{padding:6px 8px;border-bottom:1px solid #eee;color:#333}
 <div class="sec">סיכום לפי קטגוריה</div>
 <table><thead><tr><th>קטגוריה</th><th>סה"כ</th><th>%</th></tr></thead><tbody>${catRows}</tbody></table>
 </body></html>`;
-
+ 
     // Open in new window and trigger print
     const w=window.open("","_blank","width=800,height=600");
     if(w){
@@ -548,7 +551,7 @@ td{padding:6px 8px;border-bottom:1px solid #eee;color:#333}
       toast2("📄 קובץ HTML הורד — פתח בדפדפן להדפסה");
     }
   }
-
+ 
   // ── Analysis ─────────────────────────────────────────────────────────────────
   function getAnalysis(){
     const keys=[];for(let i=0;i<anM;i++) keys.push(offPK(CK,i));keys.reverse();
@@ -564,7 +567,7 @@ td{padding:6px 8px;border-bottom:1px solid #eee;color:#333}
     keys.forEach(k=>{byMBud[k]=getTotalBudget(accData,k);overdraftM[k]=Math.max(0,(byM[k]||0)-byMBud[k]);});
     return {keys,total,byCat,byM,byMBud,overdraftM,savTransferTotal};
   }
-
+ 
   // ── Onboard finish ───────────────────────────────────────────────────────────
   async function finishOnboard(){
     const url=(oUrl||"").trim().replace(/\/+$/,"");
@@ -579,7 +582,7 @@ td{padding:6px 8px;border-bottom:1px solid #eee;color:#333}
     lsSet(LS_HH,initHH);setHH_(initHH);saveProf(np);setSUrl(url);
     setShowTut(true);
   }
-
+ 
   // ── Tutorial ─────────────────────────────────────────────────────────────────
   const TUT=[
     {icon:"🏠",title:"ברוכים הבאים!",color:"#6C63FF",desc:"ניהול תקציב משפחתי חכם לשני בני הזוג",
@@ -721,7 +724,7 @@ td{padding:6px 8px;border-bottom:1px solid #eee;color:#333}
         <div style="background:rgba(255,255,255,0.1);border-radius:8px;padding:6px">💳 הוצאה חדשה מ-שרה: ₪180 · 🍽️ מסעדות</div>
       </div></div>`},
   ];
-
+ 
   if(showTut) return(
     <div style={{fontFamily:"'Heebo',sans-serif",direction:"rtl",background:"#0A0A16",minHeight:"100dvh",width:"100%",color:"#fff",display:"flex",flexDirection:"column",overflow:"hidden"}}>
       <style>{`@import url('https://fonts.googleapis.com/css2?family=Heebo:wght@400;600;700;800&display=swap');*{box-sizing:border-box}button{font-family:'Heebo',sans-serif;outline:none}`}</style>
@@ -751,7 +754,7 @@ td{padding:6px 8px;border-bottom:1px solid #eee;color:#333}
       </div>
     </div>
   );
-
+ 
   // ══════════════════════════════════════════════════════════════════════════
   // ONBOARDING
   // ══════════════════════════════════════════════════════════════════════════
@@ -771,9 +774,9 @@ td{padding:6px 8px;border-bottom:1px solid #eee;color:#333}
             background:ii===oStep?"#6C63FF":ii<oStep?"rgba(108,99,255,0.5)":"rgba(255,255,255,0.15)"}}/>
         ))}
       </div>
-
+ 
       <div style={{flex:1,display:"flex",flexDirection:"column",justifyContent:"center"}}>
-
+ 
         {/* ── Step 0: Name ── */}
         {oStep===0&&<>
           <div style={{textAlign:"center",marginBottom:32}}>
@@ -787,7 +790,7 @@ td{padding:6px 8px;border-bottom:1px solid #eee;color:#333}
             style={{marginBottom:20,fontWeight:800,fontSize:22,textAlign:"center"}} />
           <button className="ob-btn" onClick={()=>oName.trim()&&setOS(1)}>המשך ›</button>
         </>}
-
+ 
         {/* ── Step 1: Sharing key (optional) + continue ── */}
         {oStep===1&&<>
           <div style={{textAlign:"center",marginBottom:22}}>
@@ -798,7 +801,7 @@ td{padding:6px 8px;border-bottom:1px solid #eee;color:#333}
               <b style={{color:"#4ECDC4"}}>תקבל את כל ההגדרות אוטומטית</b> — ללא בחירת יום איפוס.
             </div>
           </div>
-
+ 
           {/* URL input */}
           <div style={{marginBottom:14}}>
             <div style={{fontSize:12,color:"#888",marginBottom:6}}>Firebase URL (מפתח שיתוף)</div>
@@ -807,7 +810,7 @@ td{padding:6px 8px;border-bottom:1px solid #eee;color:#333}
               value={oUrl} onChange={e=>setOU(e.target.value)}
               style={{direction:"ltr",textAlign:"left",fontSize:13}} />
           </div>
-
+ 
           {/* Join button — shown when URL is entered */}
           {oUrl.trim()&&<>
             <button className="ob-btn" onClick={finishOnboard}
@@ -818,20 +821,20 @@ td{padding:6px 8px;border-bottom:1px solid #eee;color:#333}
               ✓ לא תצטרך לבחור יום איפוס — ייקלט מהחשבון הקיים
             </div>
           </>}
-
+ 
           {/* Divider */}
           <div style={{display:"flex",alignItems:"center",gap:10,marginBottom:14}}>
             <div style={{flex:1,height:1,background:"rgba(255,255,255,0.1)"}}/>
             <div style={{fontSize:12,color:"#555"}}>{oUrl.trim()?"או צור חדש":"אין לי מפתח"}</div>
             <div style={{flex:1,height:1,background:"rgba(255,255,255,0.1)"}}/>
           </div>
-
+ 
           {/* Create new — leads to reset day selection */}
           <button className="ob-btn" onClick={()=>{setOU("");setOS(2);}}
             style={{background:"linear-gradient(135deg,#6C63FF,#4ECDC4)"}}>
             {oUrl.trim()?"צור משק בית חדש במקום ›":"המשך לבחירת יום איפוס ›"}
           </button>
-
+ 
           {/* Firebase setup hint */}
           <div style={{marginTop:16,padding:"10px 14px",background:"rgba(108,99,255,0.08)",border:"1px solid rgba(108,99,255,0.2)",borderRadius:12,fontSize:11,color:"#777",lineHeight:1.8}}>
             <b style={{color:"#999"}}>איך מקבלים מפתח שיתוף?</b><br/>
@@ -840,7 +843,7 @@ td{padding:6px 8px;border-bottom:1px solid #eee;color:#333}
             3. העתק את ה-URL ושלח לבן/בת הזוג
           </div>
         </>}
-
+ 
         {/* ── Step 2: Reset day — only if no URL ── */}
         {oStep===2&&<>
           <div style={{textAlign:"center",marginBottom:24}}>
@@ -855,25 +858,25 @@ td{padding:6px 8px;border-bottom:1px solid #eee;color:#333}
           </div>
           <button className="ob-btn" onClick={finishOnboard}>{syncing?"יוצר...":"🚀 צור משק בית"}</button>
         </>}
-
+ 
       </div>
       {oStep>0&&<button onClick={()=>setOS(p=>p-1)} style={{background:"none",border:"none",color:"#555",cursor:"pointer",fontFamily:"Heebo",fontSize:14,padding:"12px 0",textAlign:"center"}}>‹ חזור</button>}
     </div>
   );
-
+ 
   // ══════════════════════════════════════════════════════════════════════════
   // MAIN APP
   // ══════════════════════════════════════════════════════════════════════════
   return(
     <div style={{fontFamily:"'Heebo',sans-serif",direction:"rtl",background:bg,minHeight:"100dvh",width:"100%",color:tc,position:"relative",zoom}}>
       <style>{css}</style>
-
+ 
       {/* Toast */}
       {toast&&<div style={{position:"fixed",top:14,left:"50%",transform:"translateX(-50%)",
         background:toast.type==="err"?"#FF6B6B":toast.type==="warn"?"#FFE66D":toast.type==="info"?"#4ECDC4":acc,
         color:["warn","info"].includes(toast.type)?"#111":"#fff",
         padding:"9px 22px",borderRadius:50,zIndex:9999,fontWeight:700,fontSize:13,whiteSpace:"nowrap",boxShadow:"0 4px 20px rgba(0,0,0,0.5)",pointerEvents:"none"}}>{toast.msg}</div>}
-
+ 
       {/* ── EOM ── */}
       {showEOM&&<BS onClose={()=>setShowEOM(false)}>
         {eomMode==="positive"?<>
@@ -897,7 +900,7 @@ td{padding:6px 8px;border-bottom:1px solid #eee;color:#333}
           <button onClick={()=>setShowEOM(false)} style={{width:"100%",padding:10,borderRadius:12,border:`1px solid ${cbr}`,background:"transparent",color:sub,cursor:"pointer",fontFamily:"Heebo",fontWeight:600,fontSize:13}}>אני מכסה בדרך אחרת</button>
         </>}
       </BS>}
-
+ 
       {/* ── Reset day confirm ── */}
       {rdConfirm!==null&&<BS onClose={()=>setRdConfirm(null)}>
         <div style={{textAlign:"center"}}><div style={{fontSize:42,marginBottom:10}}>📅</div>
@@ -910,7 +913,7 @@ td{padding:6px 8px;border-bottom:1px solid #eee;color:#333}
           <button onClick={()=>changeRD(rdConfirm)} className="btn" style={{flex:1,padding:12}}>אישור — שנה</button>
         </div>
       </BS>}
-
+ 
       {/* ── Edit Expense ── */}
       {editExp&&<BS onClose={()=>setEditExp(null)}>
         <div style={{fontSize:17,fontWeight:800,marginBottom:14}}>✏️ עריכת הוצאה</div>
@@ -936,7 +939,7 @@ td{padding:6px 8px;border-bottom:1px solid #eee;color:#333}
           <button onMouseDown={e=>e.preventDefault()} onClick={saveEditExp} className="btn" style={{flex:2,padding:11}}>שמור</button>
         </div>
       </BS>}
-
+ 
       {/* ── Reset all ── */}
       {showReset&&<BS onClose={()=>setShowReset(false)}>
         <div style={{textAlign:"center"}}><div style={{fontSize:42,marginBottom:10}}>⚠️</div>
@@ -947,7 +950,7 @@ td{padding:6px 8px;border-bottom:1px solid #eee;color:#333}
           <button onClick={async()=>{localStorage.removeItem(LS_PROF);localStorage.removeItem(LS_HH);setProf_({name:"",dbUrl:"",accId:"acc1",onboarded:false,settings:{...DEF_S},eomSeen:{}});setHH_(DEF_HH);setShowReset(false);}} style={{flex:1,padding:12,borderRadius:12,border:"none",background:"#FF6B6B",color:"#fff",cursor:"pointer",fontWeight:700,fontFamily:"Heebo"}}>מחק הכל</button>
         </div>
       </BS>}
-
+ 
       {/* ── Add Account ── */}
       {showAddAcc&&<BS onClose={()=>setShowAddAcc(false)}>
         <div style={{fontSize:17,fontWeight:800,marginBottom:12}}>חשבון חדש</div>
@@ -974,7 +977,7 @@ td{padding:6px 8px;border-bottom:1px solid #eee;color:#333}
           <button onMouseDown={e=>e.preventDefault()} onClick={doAddAcc} className="btn" style={{flex:1,padding:12}}>הוסף</button>
         </div>
       </BS>}
-
+ 
       {/* ── Edit Account ── */}
       {editAcc&&<BS onClose={()=>setEditAcc(null)}>
         <div style={{fontSize:17,fontWeight:800,marginBottom:12}}>✏️ עריכת חשבון</div>
@@ -993,7 +996,7 @@ td{padding:6px 8px;border-bottom:1px solid #eee;color:#333}
           <button onMouseDown={e=>e.preventDefault()} onClick={saveEditAcc} className="btn" style={{flex:1,padding:12}}>שמור</button>
         </div>
       </BS>}
-
+ 
       {/* ── Deposit / Withdraw / Xfer ── */}
       {depG&&<BS onClose={()=>{setDepG(null);setDepA("");}}>
         <div style={{textAlign:"center"}}><div style={{fontSize:34,marginBottom:8}}>💚</div><div style={{fontSize:17,fontWeight:800,marginBottom:14}}>הפקדה לחיסכון</div></div>
@@ -1033,7 +1036,7 @@ td{padding:6px 8px;border-bottom:1px solid #eee;color:#333}
           <button onClick={async()=>{await doSave({...hh,data:{...hh.data,[accId]:{...accData,savings:savings.filter(g=>g.id!==delGC)}}});setDelGC(null);toast2("יעד נמחק");}} style={{flex:1,padding:12,borderRadius:12,border:"none",background:"#FF6B6B",color:"#fff",cursor:"pointer",fontWeight:700,fontFamily:"Heebo"}}>מחק</button>
         </div>
       </BS>}
-
+ 
       {/* ── Export month picker ── */}
       {showExpPicker&&<BS onClose={()=>setShowExpPicker(false)}>
         <div style={{fontSize:17,fontWeight:800,marginBottom:6}}>📅 בחר חודשים לייצוא</div>
@@ -1057,7 +1060,7 @@ td{padding:6px 8px;border-bottom:1px solid #eee;color:#333}
         </div>
         <button className="btn" onClick={()=>setShowExpPicker(false)} style={{width:"100%",padding:12,marginTop:14,fontSize:15}}>אישור</button>
       </BS>}
-
+ 
       {/* ── Header ── */}
       <div style={{padding:"18px 18px 0",display:"flex",justifyContent:"space-between",alignItems:"center",marginBottom:2}}>
         <div>
@@ -1074,9 +1077,9 @@ td{padding:6px 8px;border-bottom:1px solid #eee;color:#333}
           <button onClick={()=>setView("settings")} style={{width:34,height:34,borderRadius:"50%",border:`1px solid ${cbr}`,background:cb,color:tc,cursor:"pointer",fontSize:18,display:"flex",alignItems:"center",justifyContent:"center",padding:0}}>⚙️</button>
         </div>
       </div>
-
+ 
       <div style={{padding:"12px 18px 115px"}}>
-
+ 
         {/* ════ HOME ══════════════════════════════════════════════════════ */}
         {view==="home"&&<>
           <PNav/>
@@ -1108,7 +1111,7 @@ td{padding:6px 8px;border-bottom:1px solid #eee;color:#333}
               {isPastPeriod&&Math.abs(rem)>5&&<button className="btn" onClick={()=>{const pm=accData.months?.[VK];setEomMode(rem>0?"positive":"negative");if(!pm?.eomAction)setShowEOM(true);else toast2(rem>0?"יתרה: ₪"+rem.toLocaleString()+" הועברה "+pm.eomAction:"חריגה: ₪"+Math.abs(rem).toLocaleString()+" "+pm.eomAction);}} style={{flex:1,padding:"9px 0",fontSize:12,minWidth:80,background:"rgba(255,255,255,0.1)"}}>📋 סיכום תקופה</button>}
             </div>
           </div>
-
+ 
           {/* Category summary */}
           {Object.keys(catSum).length>0&&<div className="card" style={{padding:16,marginBottom:14}}>
             <div style={{fontSize:12,fontWeight:700,color:sub,marginBottom:10}}>לפי קטגוריה</div>
@@ -1123,7 +1126,7 @@ td{padding:6px 8px;border-bottom:1px solid #eee;color:#333}
               </div>
             ))}
           </div>}
-
+ 
           {/* Recent expenses */}
           {viewExp.length>0&&<div className="card" style={{padding:16}}>
             <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",marginBottom:10}}>
@@ -1152,7 +1155,7 @@ td{padding:6px 8px;border-bottom:1px solid #eee;color:#333}
               </div>
             ))}
           </div>}
-
+ 
           {/* EOM done summary */}
           {eomDone&&hOff===0&&<div style={{background:"rgba(78,205,196,0.1)",border:"1px solid rgba(78,205,196,0.3)",borderRadius:14,padding:"12px 16px",marginBottom:14,display:"flex",justifyContent:"space-between",alignItems:"center"}}>
             <div>
@@ -1166,14 +1169,14 @@ td{padding:6px 8px;border-bottom:1px solid #eee;color:#333}
             <div style={{fontSize:12,fontWeight:700,color:"#4ECDC4",marginBottom:2}}>📋 מה נעשה עם יתרת התקופה</div>
             <div style={{fontSize:13,color:tc}}>₪{(pm.eomAmt||0).toLocaleString()} — {pm.eomAction}{pm.eomGoal?` (${pm.eomGoal})`:""}</div>
           </div>:null;})()}
-
+ 
           {viewExp.length===0&&totalBud===0&&hOff===0&&<div style={{textAlign:"center",padding:"50px 0",color:sub}}>
             <div style={{fontSize:52,marginBottom:14}}>💰</div>
             <div style={{fontSize:18,fontWeight:800,marginBottom:6}}>שלום {prof.name}!</div>
             <div style={{fontSize:13,marginBottom:16}}>התחל בקביעת תקציב חודשי</div>
             {!prof.dbUrl&&<div style={{padding:"10px 16px",borderRadius:12,background:acc+"22",border:`1px solid ${acc}44`,fontSize:12,color:sub,lineHeight:1.7}}>💡 לסנכרון — הגדרות → ☁️ ענן</div>}
           </div>}
-
+ 
           {/* Future period info */}
           {isFuturePeriod&&viewExp.length===0&&<div style={{textAlign:"center",padding:"40px 0",color:sub}}>
             <div style={{fontSize:40,marginBottom:12}}>📅</div>
@@ -1181,7 +1184,7 @@ td{padding:6px 8px;border-bottom:1px solid #eee;color:#333}
             <div style={{fontSize:13}}>הוצאות תשלומים/קבועות יופיעו כאן</div>
           </div>}
         </>}
-
+ 
         {/* ════ SET BUDGET ════════════════════════════════════════════════ */}
         {view==="setBudget"&&<div className="card" style={{padding:24}}>
           <button onClick={()=>setView("home")} style={{background:"none",border:"none",color:sub,cursor:"pointer",fontSize:22,marginBottom:14,padding:0}}>‹</button>
@@ -1194,7 +1197,7 @@ td{padding:6px 8px;border-bottom:1px solid #eee;color:#333}
           <button className="btn" onClick={setBudget} style={{width:"100%",padding:14,fontSize:16,marginBottom:10}}>{syncing?"שומר...":"קבע תקציב לכל החודשים"}</button>
           {totalBud>0&&<button onClick={clearBudget} style={{width:"100%",padding:12,borderRadius:12,border:"1px solid #FF6B6B",background:"transparent",color:"#FF6B6B",cursor:"pointer",fontFamily:"Heebo",fontWeight:700,fontSize:14}}>אפס תקציב תקופה זו</button>}
         </div>}
-
+ 
         {/* ════ ADD EXTRA ════════════════════════════════════════════════ */}
         {view==="addExtra"&&<div className="card" style={{padding:24}}>
           <button onClick={()=>setView("home")} style={{background:"none",border:"none",color:sub,cursor:"pointer",fontSize:22,marginBottom:14,padding:0}}>‹</button>
@@ -1206,12 +1209,12 @@ td{padding:6px 8px;border-bottom:1px solid #eee;color:#333}
             onKeyDown={e=>e.key==="Enter"&&addExtra()} />
           <button className="btn" onClick={addExtra} style={{width:"100%",padding:14,fontSize:16,background:"linear-gradient(135deg,#FF8B94,#FFE66D)",color:"#111"}}>{syncing?"שומר...":"הוסף לחודש זה בלבד"}</button>
         </div>}
-
+ 
         {/* ════ ADD EXPENSE ════════════════════════════════════════════════ */}
         {view==="add"&&<div>
           <button onClick={()=>setView("home")} style={{background:"none",border:"none",color:sub,cursor:"pointer",fontSize:22,marginBottom:14,padding:0}}>‹</button>
           <div style={{fontSize:20,fontWeight:800,marginBottom:14}}>הוספת הוצאה</div>
-
+ 
           <div className="card" style={{padding:16,marginBottom:10}}>
             <div style={{fontSize:12,color:sub,marginBottom:6}}>סכום כולל (₪)</div>
             <input type="number" inputMode="decimal" placeholder="0.00" value={ef.amt}
@@ -1240,7 +1243,7 @@ td{padding:6px 8px;border-bottom:1px solid #eee;color:#333}
               {ef.date>TOD?"📅 הוצאה עתידית — ":""}תקופה: <b style={{color:acc}}>{getPL(getPK(new Date(ef.date),rd),rd)}</b>
             </div>
           </div>
-
+ 
           {/* Advanced */}
           <div className="card" style={{padding:16,marginBottom:10}}>
             <div style={{fontSize:13,fontWeight:700,marginBottom:14}}>⚙️ אפשרויות מתקדמות</div>
@@ -1284,12 +1287,12 @@ td{padding:6px 8px;border-bottom:1px solid #eee;color:#333}
               </>}
             </div>
           </div>
-
+ 
           <button className="btn" onClick={addExp} style={{width:"100%",padding:16,fontSize:17}}>
             {syncing?"שומר...":ef.recurring?`🔄 הוסף הוצאה קבועה (${ef.recM} חודשים)`:ef.inst>1?`💳 הוסף ${ef.inst} תשלומים`:"➕ רשום הוצאה"}
           </button>
         </div>}
-
+ 
         {/* ════ HISTORY ════════════════════════════════════════════════════ */}
         {view==="history"&&<div>
           <button onClick={()=>setView("home")} style={{background:"none",border:"none",color:sub,cursor:"pointer",fontSize:22,marginBottom:14,padding:0}}>‹</button>
@@ -1336,7 +1339,7 @@ td{padding:6px 8px;border-bottom:1px solid #eee;color:#333}
             </div>
           ))}
         </div>}
-
+ 
         {/* ════ ANALYSIS ══════════════════════════════════════════════════ */}
         {view==="analysis"&&(()=>{
           const {keys,total,byCat,byM,byMBud,overdraftM,savTransferTotal}=getAnalysis();
@@ -1400,7 +1403,7 @@ td{padding:6px 8px;border-bottom:1px solid #eee;color:#333}
             </div>}
           </div>;
         })()}
-
+ 
         {/* ════ SAVINGS ════════════════════════════════════════════════════ */}
         {view==="savings"&&<div>
           <button onClick={()=>setView("home")} style={{background:"none",border:"none",color:sub,cursor:"pointer",fontSize:22,marginBottom:14,padding:0}}>‹</button>
@@ -1440,7 +1443,7 @@ td{padding:6px 8px;border-bottom:1px solid #eee;color:#333}
             <button className="btn" onClick={addSav} style={{width:"100%",padding:12,fontSize:15}}>{syncing?"שומר...":"הוסף יעד"}</button>
           </div>
         </div>}
-
+ 
         {/* ════ SETTINGS ══════════════════════════════════════════════════ */}
         {view==="settings"&&<div>
           <button onClick={()=>setView("home")} style={{background:"none",border:"none",color:sub,cursor:"pointer",fontSize:22,marginBottom:14,padding:0}}>‹</button>
@@ -1450,7 +1453,7 @@ td{padding:6px 8px;border-bottom:1px solid #eee;color:#333}
               <button key={id} onClick={()=>setSect(id)} className={`seg${sect===id?" on":""}`} style={{padding:"7px 12px",fontSize:13}}>{l}</button>
             ))}
           </div>
-
+ 
           {/* Profile */}
           {sect==="profile"&&<div className="card" style={{padding:20}}>
             <div style={{fontSize:13,color:sub,marginBottom:6}}>שם</div>
@@ -1463,7 +1466,7 @@ td{padding:6px 8px;border-bottom:1px solid #eee;color:#333}
               ))}
             </div>
           </div>}
-
+ 
           {/* Cloud */}
           {sect==="cloud"&&<div>
             <div className="card" style={{padding:16,marginBottom:12}}>
@@ -1511,7 +1514,7 @@ td{padding:6px 8px;border-bottom:1px solid #eee;color:#333}
               }} style={{width:"100%",padding:12,fontSize:15}}>{syncing?"מחבר...":"הצטרף למשק בית"}</button>
             </div>
           </div>}
-
+ 
           {/* Notifications */}
           {sect==="notif"&&<div>
             <div className="card" style={{padding:16,marginBottom:12}}>
@@ -1588,7 +1591,7 @@ td{padding:6px 8px;border-bottom:1px solid #eee;color:#333}
               </>}
             </div>}
           </div>}
-
+ 
           {/* Export */}
           {sect==="export"&&<div>
             <div className="card" style={{padding:16,marginBottom:12}}>
@@ -1622,7 +1625,7 @@ td{padding:6px 8px;border-bottom:1px solid #eee;color:#333}
               </div>
             </div>
           </div>}
-
+ 
           {/* Categories */}
           {sect==="cats"&&<div>
             <div className="card" style={{padding:16,marginBottom:12}}>
@@ -1645,7 +1648,7 @@ td{padding:6px 8px;border-bottom:1px solid #eee;color:#333}
               <button className="btn" onClick={addCat} style={{width:"100%",padding:12,fontSize:15}}>+ הוסף</button>
             </div>
           </div>}
-
+ 
           {/* Appearance */}
           {sect==="appear"&&<div className="card" style={{padding:20}}>
             <div style={{fontSize:14,fontWeight:700,marginBottom:12}}>גודל תצוגה</div>
@@ -1667,7 +1670,7 @@ td{padding:6px 8px;border-bottom:1px solid #eee;color:#333}
               </div>
             ))}
           </div>}
-
+ 
           {/* Accounts */}
           {sect==="accounts"&&<div>
             {(hh.accounts||[]).map(a=>(
@@ -1684,7 +1687,7 @@ td{padding:6px 8px;border-bottom:1px solid #eee;color:#333}
             ))}
             <button className="btn" onClick={()=>setShowAddAcc(true)} style={{width:"100%",padding:12,marginTop:4,fontSize:15}}>+ חשבון חדש</button>
           </div>}
-
+ 
           {/* Danger */}
           {sect==="danger"&&<div>
             <div className="card" style={{padding:16,marginBottom:12}}>
@@ -1698,7 +1701,7 @@ td{padding:6px 8px;border-bottom:1px solid #eee;color:#333}
           </div>}
         </div>}
       </div>
-
+ 
       {/* ── Bottom Nav ── */}
       <div style={{position:"fixed",bottom:0,left:0,right:0,background:dark?"rgba(10,10,20,0.97)":"rgba(245,245,245,0.97)",backdropFilter:"blur(20px)",WebkitBackdropFilter:"blur(20px)",borderTop:`1px solid ${cbr}`,display:"flex",padding:"8px 0 20px",zIndex:50}}>
         {[{id:"home",ic:"🏠",l:"בית"},{id:"add",ic:"➕",l:"הוצאה"},{id:"history",ic:"📋",l:"היסטוריה"},{id:"analysis",ic:"📊",l:"ניתוח"},{id:"savings",ic:"🎯",l:"חיסכון"}].map(t=>(
@@ -1713,3 +1716,4 @@ td{padding:6px 8px;border-bottom:1px solid #eee;color:#333}
     </div>
   );
 }
+ 
