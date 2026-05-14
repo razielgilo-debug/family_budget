@@ -282,22 +282,18 @@ export default function App(){
   // ── Period nav ──────────────────────────────────────────────────────────────
   const PNav=()=>(
     <div style={{display:"flex",alignItems:"center",justifyContent:"center",gap:10,marginBottom:14}}>
-      {/* Right button = past months (hOff increases → older) */}
+      {/* In RTL: first child = RIGHT side visually = › past */}
       <button onClick={()=>setHOff(h=>h+1)}
-        style={{background:"none",border:`1px solid ${cbr}`,color:tc,borderRadius:10,padding:"6px 14px",cursor:"pointer",fontFamily:"Heebo",fontSize:18,outline:"none"}}>
-        ›
-      </button>
+        style={{background:"none",border:`1px solid ${cbr}`,color:tc,borderRadius:10,padding:"6px 14px",cursor:"pointer",fontSize:18,outline:"none"}}>›</button>
       <div style={{textAlign:"center",flex:1}}>
         <div style={{fontSize:14,fontWeight:700}}>{getPL(VK,rd)}</div>
         <div style={{fontSize:10,marginTop:2,color:isFuturePeriod?"#85C1E9":isPastPeriod?"#FFE66D":"#4ECDC4"}}>
           {isFuturePeriod?"📅 עתידי":isPastPeriod?"🕐 עבר":"● נוכחי"}
         </div>
       </div>
-      {/* Left button = future months (hOff decreases → newer/future) */}
+      {/* In RTL: last child = LEFT side visually = ‹ future */}
       <button onClick={()=>setHOff(h=>h-1)}
-        style={{background:"none",border:`1px solid ${hOff>=0?cbr:acc}`,color:hOff>=0?tc:acc,borderRadius:10,padding:"6px 14px",cursor:"pointer",fontFamily:"Heebo",fontSize:18,outline:"none"}}>
-        ‹
-      </button>
+        style={{background:"none",border:`1px solid ${cbr}`,color:tc,borderRadius:10,padding:"6px 14px",cursor:"pointer",fontSize:18,outline:"none"}}>‹</button>
     </div>
   );
 
