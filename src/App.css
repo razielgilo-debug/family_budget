@@ -105,7 +105,9 @@ export default function App(){
   const [wdG, setWdG] =useState(null);const [wdA,  setWdA] =useState("");
   const [showXfer,setShowXfer]=useState(false);const [xG,setXG]=useState("");const [xA,setXA]=useState("");
   const [showEOM,setShowEOM]=useState(false);const [eomMode,setEomMode]=useState("");const [eomSav,setEomSav]=useState("");
-  const [eomDone,setEomDone]=useState(null); // {action,amount,goal?} summary of what was done
+  const [eomDone,setEomDone]=useState(null);
+  const [splitSavAmt,setSplitSavAmt]=useState("");
+  const [splitNextAmt,setSplitNextAmt]=useState(""); // {action,amount,goal?} summary of what was done
   const [delGC,setDelGC]=useState(null);
   const [rdConfirm,setRdConfirm]=useState(null);
   const [showRecurring,setShowRecurring]=useState(false);
@@ -174,7 +176,7 @@ export default function App(){
       const m={...DEF_HH,...res.data,cats:res.data.cats||DEF_CATS,accounts:res.data.accounts||DEF_HH.accounts,data:res.data.data||DEF_HH.data};
       lsSet(LS_HH,m);setHH_(m);
       if(notify&&p) checkPartnerExp(m,p);
-      if(p) checkEOM(p,m);
+      if(p&&!notify) checkEOM(p,m); // only on init load (notify=false)
     } else { setSyOk(false); }
   }
   function checkPartnerExp(nh,p){
@@ -283,18 +285,22 @@ export default function App(){
   const PNav=()=>(
     <div style={{display:"flex",alignItems:"center",justifyContent:"center",gap:10,marginBottom:14}}>
       {/* In RTL: first child = RIGHT side visually = › past */}
-      {/* In RTL flex: first child appears LEFT visually */}
-      <button onClick={()=>setHOff(h=>h+1)}
-        style={{background:"none",border:`1px solid ${cbr}`,color:tc,borderRadius:10,padding:"6px 14px",cursor:"pointer",fontSize:18,outline:"none"}}>‹</button>
+  const PNav=()=>(
+    <div dir="ltr" style={{display:"flex",alignItems:"center",justifyContent:"center",gap:10,marginBottom:14}}>
+      {/* LTR: first child = LEFT = ‹ future */}
+      <button onClick={()=>setHOff(h=>h-1)}
+        style={{background:"none",border:`1px solid ${cbr}`,color:tc,borderRadius:10,padding:"6px 16px",cursor:"pointer",fontSize:20,outline:"none"}}>‹</button>
       <div style={{textAlign:"center",flex:1}}>
-        <div style={{fontSize:14,fontWeight:700}}>{getPL(VK,rd)}</div>
+        <div style={{fontSize:14,fontWeight:700,direction:"rtl"}}>{getPL(VK,rd)}</div>
         <div style={{fontSize:10,marginTop:2,color:isFuturePeriod?"#85C1E9":isPastPeriod?"#FFE66D":"#4ECDC4"}}>
           {isFuturePeriod?"📅 עתידי":isPastPeriod?"🕐 עבר":"● נוכחי"}
         </div>
       </div>
-      {/* last child appears RIGHT visually */}
-      <button onClick={()=>setHOff(h=>h-1)}
-        style={{background:"none",border:`1px solid ${cbr}`,color:tc,borderRadius:10,padding:"6px 14px",cursor:"pointer",fontSize:18,outline:"none"}}>›</button>
+      {/* LTR: last child = RIGHT = › past */}
+      <button onClick={()=>setHOff(h=>h+1)}
+        style={{background:"none",border:`1px solid ${cbr}`,color:tc,borderRadius:10,padding:"6px 16px",cursor:"pointer",fontSize:20,outline:"none"}}>›</button>
+    </div>
+  );
     </div>
   );
 
@@ -434,24 +440,71 @@ export default function App(){
   }
 
   // ── EOM ─────────────────────────────────────────────────────────────────────
-  async function eomToNext(){
-    const sign=eomMode==="positive"?1:-1,amt=Math.abs(prevRem);
-    const cm=accData.months?.[CK]||{},nh={...hh,data:{...hh.data,[accId]:{...accData,months:{...accData.months,[CK]:{...cm,extra:(cm.extra||0)+sign*amt}}}}};
-    // Store action in prev month record
-    const action=eomMode==="positive"?"לחודש הבא":"כוסה חריגה";
-    const nhf={...nh,data:{...nh.data,[accId]:{...nh.data[accId],months:{...nh.data[accId].months,[PK]:{...(nh.data[accId].months?.[PK]||{}),eomAction:action,eomAmt:amt}}}}};
-    await doSave(nhf);setShowEOM(false);
-    setEomDone({action,amount:amt,key:PK});
-    toast2(eomMode==="positive"?`₪${amt.toLocaleString()} הועברו לחודש הנוכחי 🎉`:`מינוס ₪${amt.toLocaleString()} הועבר לחודש הנוכחי`);
+  // Helper: add deduction expense in prev month so balance zeroes out
+  function mkEomExp(amt,label){ return {id:uid(),amount:amt,cat:"📦 אחר",biz:"",note:label,date:TOD,mKey:PK,by:prof.name,transfer:true,ts:Date.now()}; }
+
+  async function eomToNext(customAmt){
+    const sign=eomMode==="positive"?1:-1;
+    const amt=customAmt!=null?parseFloat(customAmt)||0:Math.abs(prevRem);
+    if(amt<=0) return;
+    // Add extra to current month
+    const cm=accData.months?.[CK]||{};
+    // Add deduction expense in prev month so prev balance zeroes
+    const exp=mkEomExp(amt,eomMode==="positive"?"העברה לחודש הבא":"כיסוי חריגה");
+    const newExps=[...allExp,exp];
+    const nh={...hh,data:{...hh.data,[accId]:{...accData,
+      expenses:newExps,
+      months:{...accData.months,
+        [CK]:{...cm,extra:(cm.extra||0)+sign*amt},
+        [PK]:{...(accData.months?.[PK]||{}),eomAction:eomMode==="positive"?"לחודש הבא":"כוסה חריגה",eomAmt:amt}
+      }
+    }}};
+    await doSave(nh);setShowEOM(false);
+    setEomDone({action:eomMode==="positive"?"לחודש הבא":"כוסה חריגה",amount:amt,key:PK});
+    toast2(eomMode==="positive"?`₪${amt.toLocaleString()} הועברו לחודש הנוכחי 🎉`:`מינוס ₪${amt.toLocaleString()} הועבר`);
   }
-  async function eomToSav(){
-    const amt=Math.abs(prevRem);if(!eomSav){toast2("בחר יעד","err");return;}
+
+  async function eomToSav(customAmt){
+    const amt=customAmt!=null?parseFloat(customAmt)||0:Math.abs(prevRem);
+    if(amt<=0){toast2("הכנס סכום","err");return;}
+    if(!eomSav){toast2("בחר יעד","err");return;}
     const savGoal=savings.find(g=>g.id===eomSav);
-    const nh={...hh,data:{...hh.data,[accId]:{...accData,savings:savings.map(g=>g.id===eomSav?{...g,saved:(g.saved||0)+amt,deposits:[...(g.deposits||[]),{id:uid(),amount:amt,date:TOD}]}:g)}}};
-    const nhf={...nh,data:{...nh.data,[accId]:{...nh.data[accId],months:{...nh.data[accId].months,[PK]:{...(nh.data[accId].months?.[PK]||{}),eomAction:"לחיסכון",eomAmt:amt,eomGoal:savGoal?.name||""}}}}};
-    await doSave(nhf);setShowEOM(false);
+    const exp=mkEomExp(amt,"העברה לחיסכון");
+    const newExps=[...allExp,exp];
+    const nh={...hh,data:{...hh.data,[accId]:{...accData,
+      expenses:newExps,
+      savings:savings.map(g=>g.id===eomSav?{...g,saved:(g.saved||0)+amt,deposits:[...(g.deposits||[]),{id:uid(),amount:amt,date:TOD}]}:g),
+      months:{...accData.months,[PK]:{...(accData.months?.[PK]||{}),eomAction:"לחיסכון",eomAmt:amt,eomGoal:savGoal?.name||""}}
+    }}};
+    await doSave(nh);setShowEOM(false);
     setEomDone({action:"לחיסכון",amount:amt,goal:savGoal?.name,key:PK});
     toast2(`₪${amt.toLocaleString()} הועברו לחיסכון 🎯`);
+  }
+
+  async function eomSplit(){
+    const savV=parseFloat(splitSavAmt)||0, nextV=parseFloat(splitNextAmt)||0;
+    const total=Math.abs(prevRem);
+    if(savV+nextV>total+0.01){toast2(`הסכום עולה על היתרה (₪${total.toLocaleString()})`, "err");return;}
+    if(savV>0&&!eomSav){toast2("בחר יעד חיסכון","err");return;}
+    if(savV<=0&&nextV<=0){toast2("הכנס לפחות סכום אחד","err");return;}
+    const savGoal=savings.find(g=>g.id===eomSav);
+    const totalUsed=savV+nextV;
+    // Deduction expense for total used
+    const exp=mkEomExp(totalUsed,"פיצול יתרה");
+    let newExps=[...allExp,exp];
+    let newSavings=savings;
+    if(savV>0) newSavings=savings.map(g=>g.id===eomSav?{...g,saved:(g.saved||0)+savV,deposits:[...(g.deposits||[]),{id:uid(),amount:savV,date:TOD}]}:g);
+    const cm=accData.months?.[CK]||{};
+    const nh={...hh,data:{...hh.data,[accId]:{...accData,
+      expenses:newExps,savings:newSavings,
+      months:{...accData.months,
+        [CK]:{...cm,extra:(cm.extra||0)+nextV},
+        [PK]:{...(accData.months?.[PK]||{}),eomAction:"פיצול",eomAmt:totalUsed,eomGoal:savGoal?.name||""}
+      }
+    }}};
+    await doSave(nh);setShowEOM(false);setSplitSavAmt("");setSplitNextAmt("");
+    setEomDone({action:`פיצול: ₪${savV} לחיסכון + ₪${nextV} לחודש הבא`,amount:totalUsed,key:PK});
+    toast2(`פוצל: ₪${savV} לחיסכון + ₪${nextV} לחודש הבא 🎯`);
   }
 
   // ── Cats ─────────────────────────────────────────────────────────────────────
@@ -874,24 +927,97 @@ td{padding:6px 8px;border-bottom:1px solid #eee;color:#333}
       {/* ── EOM ── */}
       {showEOM&&<BS onClose={()=>setShowEOM(false)}>
         {eomMode==="positive"?<>
-          <div style={{textAlign:"center"}}><div style={{fontSize:48,marginBottom:8}}>🎉</div>
-            <div style={{fontSize:22,fontWeight:800,color:"#4ECDC4",marginBottom:6}}>כל הכבוד!</div>
-            <div style={{fontSize:13,color:sub,marginBottom:6}}>סיימתם את {getPL(PK,rd)} עם יתרה של</div>
-            <div style={{fontSize:32,fontWeight:800,color:"#4ECDC4",marginBottom:16}}>₪{Math.abs(prevRem).toLocaleString()}</div>
+          {/* Header */}
+          <div style={{textAlign:"center",marginBottom:16}}>
+            <div style={{fontSize:44,marginBottom:6}}>🎉</div>
+            <div style={{fontSize:20,fontWeight:800,color:"#4ECDC4",marginBottom:4}}>כל הכבוד!</div>
+            <div style={{fontSize:13,color:sub}}>סיימתם את {getPL(PK,rd)} עם יתרה של</div>
+            <div style={{fontSize:36,fontWeight:800,color:"#4ECDC4"}}>₪{Math.abs(prevRem).toLocaleString()}</div>
           </div>
-          <button className="btn" onClick={eomToNext} style={{width:"100%",padding:13,fontSize:15,marginBottom:10}}>➕ הוסף לתקציב החודש הנוכחי</button>
-          {savings.length>0&&<><select value={eomSav} onChange={e=>setEomSav(e.target.value)} className="sel" style={{marginBottom:10}}><option value="">בחר יעד חיסכון...</option>{savings.map(g=><option key={g.id} value={g.id}>{g.icon} {g.name}</option>)}</select>
-          <button className="btn" onClick={eomToSav} style={{width:"100%",padding:13,fontSize:15,marginBottom:10,background:"linear-gradient(135deg,#4ECDC4,#82E0AA)"}}>🎯 העבר לחיסכון</button></>}
-          <button onClick={()=>setShowEOM(false)} style={{width:"100%",padding:10,borderRadius:12,border:`1px solid ${cbr}`,background:"transparent",color:sub,cursor:"pointer",fontFamily:"Heebo",fontWeight:600,fontSize:13}}>אחליט מאוחר</button>
+
+          {/* Option 1: to next month */}
+          <button onMouseDown={e=>e.preventDefault()} onClick={()=>eomToNext()}
+            style={{width:"100%",padding:13,fontSize:15,marginBottom:10,borderRadius:12,border:"none",background:"linear-gradient(135deg,#6C63FF,#4ECDC4)",color:"#fff",cursor:"pointer",fontFamily:"Heebo",fontWeight:700}}>
+            ➡️ העבר כל היתרה לחודש הבא
+          </button>
+
+          {/* Option 2: to savings */}
+          {savings.length>0&&<>
+            <div style={{fontSize:12,color:sub,marginBottom:6,fontWeight:600}}>🎯 העבר לחיסכון — בחר יעד:</div>
+            <div style={{display:"flex",flexWrap:"wrap",gap:7,marginBottom:10}}>
+              {savings.map(g=>(
+                <button key={g.id} onMouseDown={e=>e.preventDefault()} onClick={()=>setEomSav(g.id)}
+                  style={{padding:"6px 12px",borderRadius:20,border:`2px solid ${eomSav===g.id?"#4ECDC4":cbr}`,background:eomSav===g.id?"rgba(78,205,196,0.2)":cb,color:eomSav===g.id?"#4ECDC4":tc,cursor:"pointer",fontFamily:"Heebo",fontWeight:eomSav===g.id?700:400,fontSize:13}}>
+                  {g.icon} {g.name}
+                </button>
+              ))}
+            </div>
+            <button onMouseDown={e=>e.preventDefault()} onClick={()=>eomToSav()}
+              style={{width:"100%",padding:12,marginBottom:10,borderRadius:12,border:"none",background:"linear-gradient(135deg,#4ECDC4,#82E0AA)",color:"#111",cursor:"pointer",fontFamily:"Heebo",fontWeight:700,fontSize:15}}>
+              🎯 העבר כל היתרה לחיסכון
+            </button>
+          </>}
+
+          {/* Option 3: split */}
+          {savings.length>0&&<details style={{marginBottom:10}}>
+            <summary style={{fontSize:13,color:acc,cursor:"pointer",fontWeight:700,padding:"8px 0",listStyle:"none"}}>
+              ✂️ פצל בין חיסכון וחודש הבא
+            </summary>
+            <div style={{paddingTop:10,borderTop:`1px solid ${cbr}`,marginTop:6}}>
+              <div style={{display:"flex",flexWrap:"wrap",gap:7,marginBottom:10}}>
+                {savings.map(g=>(
+                  <button key={g.id} onMouseDown={e=>e.preventDefault()} onClick={()=>setEomSav(g.id)}
+                    style={{padding:"5px 10px",borderRadius:20,border:`2px solid ${eomSav===g.id?"#4ECDC4":cbr}`,background:eomSav===g.id?"rgba(78,205,196,0.2)":cb,color:eomSav===g.id?"#4ECDC4":tc,cursor:"pointer",fontFamily:"Heebo",fontSize:12}}>
+                    {g.icon} {g.name}
+                  </button>
+                ))}
+              </div>
+              <div style={{display:"flex",gap:8,marginBottom:10}}>
+                <div style={{flex:1}}>
+                  <div style={{fontSize:11,color:sub,marginBottom:4}}>לחיסכון ₪</div>
+                  <input type="number" inputMode="numeric" className="inp"
+                    placeholder="0" value={splitSavAmt}
+                    onChange={e=>setSplitSavAmt(e.target.value)}
+                    style={{textAlign:"center",fontSize:18,fontWeight:700}} />
+                </div>
+                <div style={{flex:1}}>
+                  <div style={{fontSize:11,color:sub,marginBottom:4}}>לחודש הבא ₪</div>
+                  <input type="number" inputMode="numeric" className="inp"
+                    placeholder="0" value={splitNextAmt}
+                    onChange={e=>setSplitNextAmt(e.target.value)}
+                    style={{textAlign:"center",fontSize:18,fontWeight:700}} />
+                </div>
+              </div>
+              {(parseFloat(splitSavAmt)||0)+(parseFloat(splitNextAmt)||0)>0&&<div style={{fontSize:11,color:sub,textAlign:"center",marginBottom:8}}>
+                סה"כ: ₪{((parseFloat(splitSavAmt)||0)+(parseFloat(splitNextAmt)||0)).toLocaleString()} מתוך ₪{Math.abs(prevRem).toLocaleString()}
+              </div>}
+              <button onMouseDown={e=>e.preventDefault()} onClick={eomSplit}
+                style={{width:"100%",padding:11,borderRadius:12,border:"none",background:`linear-gradient(135deg,${acc},#4ECDC4)`,color:"#fff",cursor:"pointer",fontFamily:"Heebo",fontWeight:700,fontSize:14}}>
+                ✂️ פצל
+              </button>
+            </div>
+          </details>}
+
+          <button onMouseDown={e=>e.preventDefault()} onClick={()=>setShowEOM(false)}
+            style={{width:"100%",padding:10,borderRadius:12,border:`1px solid ${cbr}`,background:"transparent",color:sub,cursor:"pointer",fontFamily:"Heebo",fontWeight:600,fontSize:13}}>
+            אחליט מאוחר
+          </button>
         </>:<>
-          <div style={{textAlign:"center"}}><div style={{fontSize:48,marginBottom:8}}>💪</div>
-            <div style={{fontSize:22,fontWeight:800,color:"#FFE66D",marginBottom:6}}>קרה, זה בסדר!</div>
-            <div style={{fontSize:13,color:sub,marginBottom:6}}>יצאתם מהתקציב ב-{getPL(PK,rd)} ב-</div>
-            <div style={{fontSize:32,fontWeight:800,color:"#FF6B6B",marginBottom:12}}>₪{Math.abs(prevRem).toLocaleString()}</div>
-            <div style={{fontSize:13,color:sub,marginBottom:16}}>חודש הבא הוא הזדמנות חדשה! 🌟</div>
+          <div style={{textAlign:"center",marginBottom:16}}>
+            <div style={{fontSize:44,marginBottom:6}}>💪</div>
+            <div style={{fontSize:20,fontWeight:800,color:"#FFE66D",marginBottom:4}}>קרה, זה בסדר!</div>
+            <div style={{fontSize:13,color:sub}}>יצאתם מהתקציב ב-{getPL(PK,rd)} ב-</div>
+            <div style={{fontSize:36,fontWeight:800,color:"#FF6B6B",marginBottom:8}}>₪{Math.abs(prevRem).toLocaleString()}</div>
+            <div style={{fontSize:13,color:sub}}>חודש הבא הוא הזדמנות חדשה! 🌟</div>
           </div>
-          <button className="btn" onClick={eomToNext} style={{width:"100%",padding:13,fontSize:15,marginBottom:10,background:"linear-gradient(135deg,#FF8B94,#FF6B6B)"}}>📉 העבר מינוס לחודש הנוכחי</button>
-          <button onClick={()=>setShowEOM(false)} style={{width:"100%",padding:10,borderRadius:12,border:`1px solid ${cbr}`,background:"transparent",color:sub,cursor:"pointer",fontFamily:"Heebo",fontWeight:600,fontSize:13}}>אני מכסה בדרך אחרת</button>
+          <button onMouseDown={e=>e.preventDefault()} onClick={()=>eomToNext()}
+            style={{width:"100%",padding:13,fontSize:15,marginBottom:10,borderRadius:12,border:"none",background:"linear-gradient(135deg,#FF8B94,#FF6B6B)",color:"#fff",cursor:"pointer",fontFamily:"Heebo",fontWeight:700}}>
+            📉 העבר מינוס לחודש הנוכחי
+          </button>
+          <button onMouseDown={e=>e.preventDefault()} onClick={()=>setShowEOM(false)}
+            style={{width:"100%",padding:10,borderRadius:12,border:`1px solid ${cbr}`,background:"transparent",color:sub,cursor:"pointer",fontFamily:"Heebo",fontWeight:600,fontSize:13}}>
+            אני מכסה בדרך אחרת
+          </button>
         </>}
       </BS>}
 
